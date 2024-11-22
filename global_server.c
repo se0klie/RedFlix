@@ -16,6 +16,7 @@ sbuf_t sbuf;
 bool jflag;
 
 void *thread(void *vargp);
+void *run_logic_side(void *arg);
 
 void print_help(char *command)
 {
@@ -106,7 +107,7 @@ void *run_logic_side(void *arg) {
     } else if (pid == 0) {
         // Este es el proceso hijo
         printf("Ejecutando ./logic_side en un hilo.\n");
-        execl("./logic_side", "./logic_side", NULL);
+        execl("./logic_side", "./logic_side", connfd, NULL);
         perror("Error al ejecutar ./logic_side"); // Solo se ejecuta si execl falla
         exit(EXIT_FAILURE);
     } else {

@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -g
-SRCS = global_server.c  common.c linkedlist.c
-HEADER = common.h linkedlist.h
+SRCS = global_server.c  common.c linkedlist.c sbuf.c
+HEADER = common.h linkedlist.h sbuf.h
 OBJS = $(SRCS:.c=.o)
 TARGET = global_server
 LOGIC_SERVER = logic_side

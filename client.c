@@ -39,7 +39,7 @@ void *send_commands(void *arg) {
         printf("1. PLAY\n");
         printf("2. PAUSE\n");
         printf("3. STOP\n");
-        printf("4. CHANGE QUALITY (LOW, MEDIUM, HIGH)\n");
+        printf("4. CHANGE QUALITY (-L, -M, -H)\n");
         printf("Escribe tu comando: ");
         fgets(command, sizeof(command), stdin);
 

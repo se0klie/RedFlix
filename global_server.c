@@ -20,13 +20,11 @@ void *run_logic_side(void *arg);
 
 void print_help(char *command)
 {
-	printf("Servidor simple de ejecución remota de comandos.\n");
-	printf("uso:\n %s [-d] <puerto>\n", command);
+	printf("Servidor base para RedFlix.\n");
+	printf("uso:\n %s <puerto>\n", command);
 	printf(" %s -h\n", command);
 	printf("Opciones:\n");
 	printf(" -h\t\t\tAyuda, muestra este mensaje\n");
-	printf(" -d\t\t\tModo daemon\n");
-	printf(" -j\t\t\tEspecifica el numero de worker threads.\n");
 }
 
 
@@ -49,7 +47,7 @@ int main(int argc, char **argv)
 				return 0;
 			
 			default:
-				fprintf(stderr, "uso: %s [-d] <puerto>\n", argv[0]);
+				fprintf(stderr, "uso: %s <puerto>\n", argv[0]);
 				fprintf(stderr, "	 %s -h\n", argv[0]);
 				return 1;
 		}
@@ -58,7 +56,7 @@ int main(int argc, char **argv)
 	port = argv[optind];
 
 	if(argv == NULL){
-		fprintf(stderr, "uso: %s [-d] <puerto>\n", argv[0]);
+		fprintf(stderr, "uso: %s <puerto>\n", argv[0]);
 		fprintf(stderr, "	 %s -h\n", argv[0]);
 		return 1;
 	}

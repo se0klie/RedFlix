@@ -1,25 +1,27 @@
 CC = gcc
 CFLAGS = -g
-SRCS = global_server.c  common.c linkedlist.c sbuf.c
+SRCS_COMMON = common.c linkedlist.c sbuf.c
 HEADER = common.h linkedlist.h sbuf.h
-OBJS = $(SRCS:.c=.o)
-TARGET = global_server
 LOGIC_SERVER = logic_side
-CLIENT_SERVER = client
+TARGETS = global_server client
 
-all: $(TARGET) 
+all: $(TARGETS) $(LOGIC_SERVER)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+# Compilar global_server
+global_server: global_server.o $(SRCS_COMMON:.c=.o)
+	$(CC) $(CFLAGS) -o global_server global_server.o $(SRCS_COMMON:.c=.o)
 
-$(LOGIC_SERVER): logic_side.o common.o linkedlist.o
-	$(CC) $(CFLAGS) -o $(LOGIC_SERVER) logic_side.o common.o linkedlist.o -lm
+# Compilar client
+client: client.o $(SRCS_COMMON:.c=.o)
+	$(CC) $(CFLAGS) -o client client.o $(SRCS_COMMON:.c=.o)
 
-$(CLIENT_SERVER): client.o common.o linkedlist.o
-	$(CC) $(CFLAGS) -o $(CLIENT_SERVER) client.o common.o linkedlist.o -lm
+# Compilar logic_side
+$(LOGIC_SERVER): logic_side.o $(SRCS_COMMON:.c=.o)
+	$(CC) $(CFLAGS) -o $(LOGIC_SERVER) logic_side.o $(SRCS_COMMON:.c=.o) -lm
 
+# Regla general para compilar .o
 %.o: %.c $(HEADER)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o $(TARGET) 
+	rm -f *.o $(TARGETS) $(LOGIC_SERVER)

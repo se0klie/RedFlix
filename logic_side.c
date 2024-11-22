@@ -74,7 +74,6 @@ int main(int argc, char **argv) {
     pthread_create(&threads[0], NULL, encoder, NULL);
     pthread_create(&threads[1], NULL, streamer, NULL);
     pthread_create(&threads[2], NULL, visor, (void *) argv[1]);
-    // pthread_create(&threads[2], NULL, visor, NULL);
 
     pthread_join(threads[0], NULL);
     pthread_join(threads[1], NULL);
@@ -218,7 +217,7 @@ void *changeQuality(void *arg) {
         } else if (strcmp(command, "-M") == 0) {
             video->actualBitrate = MEDIUM;
             printf("Calidad cambiada a MEDIUM\n");
-        } else if (strcmp(command, "-HIGH") == 0) {
+        } else if (strcmp(command, "-H") == 0) {
             video->actualBitrate = HIGH;
             printf("Calidad cambiada a HIGH\n");
         } 

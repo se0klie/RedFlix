@@ -24,4 +24,4 @@ $(LOGIC_SERVER): logic_side.o $(SRCS_COMMON:.c=.o)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o $(TARGETS) $(LOGIC_SERVER)
+	rm -f *.o $(TARGETS) 

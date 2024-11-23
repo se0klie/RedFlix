@@ -10,13 +10,12 @@
 int connfd; // Socket del cliente
 int running = 1; // Estado del cliente (1: funcionando, 0: terminado)
 
-// Función para recibir frames del servidor
 void *receive_frames(void *arg) {
     char buffer[BUFFER_SIZE];
     while (running) {
         ssize_t bytes = read(connfd, buffer, sizeof(buffer) - 1);
         if (bytes > 0) {
-            buffer[bytes] = '\0'; // Agregar terminador de cadena
+            buffer[bytes] = '\0'; // Ensure null-termination
             printf("Frame recibido: %s\n", buffer);
         } else if (bytes == 0) {
             printf("Conexión cerrada por el servidor.\n");
@@ -31,6 +30,7 @@ void *receive_frames(void *arg) {
     return NULL;
 }
 
+
 // Función para enviar comandos al servidor
 void *send_commands(void *arg) {
     char command[BUFFER_SIZE];
@@ -39,6 +39,7 @@ void *send_commands(void *arg) {
         printf("1. PLAY\n");
         printf("2. PAUSE\n");
         printf("3. STOP\n");
+        printf("3. REPLAY\n");
         printf("4. CHANGE QUALITY (-L, -M, -H)\n");
         printf("Escribe tu comando: ");
         fgets(command, sizeof(command), stdin);

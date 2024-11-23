@@ -17,7 +17,7 @@ typedef enum {
 } Bitrate;
 
 typedef enum{
-    PLAY,STOP,PAUSE
+    PLAY,STOP,PAUSE,NOT_STARTED,REPLAY
 } Command;
 
 typedef struct{
@@ -25,6 +25,7 @@ typedef struct{
     Bitrate actualBitrate;
     Command actualCommand;
     int bitrateChanged;
+    int endedFlag;
 } Video;
 
 Video *video;
@@ -41,19 +42,28 @@ Side *visorSide;
 Side *streamerSide;
 
 sem_t encoderMutex;
-sem_t stateMutex;
 
 void *streamer();
 void *encoder();
 void *visor();
-
 void *initVideo();
+void *command_listener(void *arg);
+
+void salir(int signal){
+	printf("BYE\n");
+	exit(0);
+}
 
 int main(int argc, char **argv) {
     if(argc != 2){
         return 1;
     }
+    int connfd = atoi(argv[1]);
+    int *connfd_ptr = malloc(sizeof(int));
+    *connfd_ptr = connfd;
 
+    
+    signal(SIGINT, salir);
     initVideo();
     visorBuf = createLinkedlist();
     streamerBuf = createLinkedlist();
@@ -69,17 +79,20 @@ int main(int argc, char **argv) {
     sem_init(&visorSide->empty,0,1);
     sem_init(&visorSide->full,0,0);
 
-    pthread_t threads[3];
+    pthread_t threads[4];
 
-    pthread_create(&threads[0], NULL, encoder, NULL);
+    pthread_create(&threads[0], NULL, encoder, connfd_ptr);
     pthread_create(&threads[1], NULL, streamer, NULL);
-    pthread_create(&threads[2], NULL, visor, (void *) argv[1]);
+    pthread_create(&threads[2], NULL, visor, connfd_ptr);
+    pthread_create(&threads[3],NULL, command_listener,connfd_ptr);
 
     pthread_join(threads[0], NULL);
     pthread_join(threads[1], NULL);
     pthread_join(threads[2], NULL);
+    pthread_join(threads[3], NULL);
 
     printf("Video stopped and closed.\n");
+    free(connfd_ptr);
     return 0;
 }
 
@@ -88,75 +101,90 @@ void *initVideo(){
 
     if (video == NULL) {
         perror("Failed to allocate memory");
-        return -1;
+        return NULL;
     }
 
     // Initialize the video struct
-    video->actualBitrate = MEDIUM;
-    video->actualCommand = PLAY;
+    video->actualBitrate = LOW;
+    video->actualCommand = NOT_STARTED;
     video->videoName = strdup("video.txt");  // Allocate memory for the string and copy it
-
+    video -> endedFlag = 0;
     // Check if memory allocation for videoName was successful
     if (video->videoName == NULL) {
         perror("Failed to allocate memory for videoName");
         free(video);
-        return -1;
+        return NULL;
     }
 
     printf("Video Name: %s\n", video->videoName);
-    
-
 }
 
-void *encoder(){
+void *encoder( void * arg){
+    int connfd = *(int *) arg;
     FILE *file = fopen("video.txt", "r");
     Bitrate rate = LOW;
     Command commandVIdeo = PLAY;
+    char *message = "Video ended. Type REPLAY or STOP.\n";
 
     if (!file) {
         perror("Error abriendo el archivo de video");
-        return -1;
+        return NULL;
     }
 
     char c[254];
     while(1 && video->actualCommand != STOP){
+        while(video->actualCommand == NOT_STARTED);
+        while(video->endedFlag == 1);
+
         sem_wait(&encoderMutex);
         if(video->actualBitrate != rate){
             video->bitrateChanged = 0;
             rate = video->actualBitrate;
         }
-        sem_post(&encoderMutex);
-
-        sem_wait(&stateMutex);
         if(video->actualCommand != commandVIdeo){
+            if(video->actualCommand == REPLAY){
+                fseek(file, 0, SEEK_SET);  // Reset file pointer to the beginning
+                printf("Replaying video...\n");
+                video->actualCommand = PLAY;
+                video->endedFlag = 0;
+            }
             commandVIdeo = video->actualCommand;
         }
-        sem_post(&stateMutex);
+        sem_post(&encoderMutex);
+
 
         if(commandVIdeo == PLAY){
             int frame = 0;
             if (video->actualBitrate == LOW) {
                 for (int i = 0; i < 100; i++) {
                     if (fgets(c, 254, file) == NULL) {
-                        fclose(file);
-                        return NULL;
+                        if(!video->endedFlag){
+                            write(connfd, message,strlen(message));
+                            video->endedFlag = 1;
+                        }
                     }
 
                 }
+                usleep(500000);
             } else if (video->actualBitrate == MEDIUM) {
                 for (int i = 0; i < 10; i++) {
                     if (fgets(c, 254, file) == NULL) {
-                        fclose(file);
-                        return NULL;
+                        if(!video->endedFlag){
+                            write(connfd, message,strlen(message));
+                            video->endedFlag = 1;
+                        }
                     }
 
                 }
+                usleep(250000);
             } else {
                 if (fgets(c, 254, file) == NULL) {
-                    fclose(file);
-                    return NULL;
+                   if(!video->endedFlag){
+                        write(connfd, message,strlen(message));
+                        video->endedFlag = 1;
+                    }
                 }
-
+               usleep(100000);
             }
 
 
@@ -177,6 +205,7 @@ void *encoder(){
 
 void *streamer(){
     while(1 && video->actualCommand != STOP){
+        while(video->actualCommand == NOT_STARTED);
         sem_wait(&streamerSide->full);
 
         if(streamerBuf->length>0){
@@ -189,68 +218,105 @@ void *streamer(){
         
     }    
 }
+void *visor(void *arg) {
+    int connfd = *(int *)arg;
 
-void *visor(void * arg){
-    int connfd = * (int *) arg;
-    while(1 && video->actualCommand != STOP){
+    while (1) {
+        while (video->actualCommand == NOT_STARTED);
+
+        if (video->actualCommand == STOP) {
+            break;
+        }
+
         sem_wait(&visorSide->full);
-        if(visorBuf->length>0){
-            int *frame = (int *) getFromList(visorBuf,0);
+        if (visorBuf->length > 0) {
+            int *frame = (int *)getFromList(visorBuf, 0);
+            printf("Visor got %d\n",frame);
+            char *frame_str = malloc(sizeof(char) * 16);
+            snprintf(frame_str, 16, "%d", frame);
+
+            printf("Sent to client: %s\n", frame_str);
+            write(connfd, frame_str, strlen(frame_str) + 1); 
             sem_post(&visorSide->empty);
-            // printf("Received client: %d\n",frame);
-            write(connfd,frame,sizeof(int));
+        }
+
+        if (video->actualCommand == PAUSE) {
+            printf("Stream paused. Waiting for RESUME...\n");
+            while (video->actualCommand == PAUSE) {
+                usleep(100000);
+            }
         }
     }
-}
 
-void *changeQuality(void *arg) {
-    char command[10];
-    while (1 && video->actualCommand != STOP) {
-        fgets(command, sizeof(command), stdin);
-
-        command[strcspn(command, "\n")] = 0;
-        sem_wait(&encoderMutex); 
-
-        if (strcmp(command, "-L") == 0) {
-            video->actualBitrate = LOW;
-            printf("Calidad cambiada a LOW\n");
-        } else if (strcmp(command, "-M") == 0) {
-            video->actualBitrate = MEDIUM;
-            printf("Calidad cambiada a MEDIUM\n");
-        } else if (strcmp(command, "-H") == 0) {
-            video->actualBitrate = HIGH;
-            printf("Calidad cambiada a HIGH\n");
-        } 
-
-        sem_post(&encoderMutex); // Unlock after modifying shared data
-    }
+    printf("Stream stopped.\n");
     return NULL;
 }
 
-void *commandHandler(void *arg) {
-    char command[10];
-    while (1 && video->actualCommand != STOP) {
-        fgets(command, sizeof(command), stdin);
 
-        // Eliminar el salto de línea
-        command[strcspn(command, "\n")] = 0;
+void *command_listener(void *arg) {
+    int connfd = *(int *)arg;
+    char buffer[256];
 
-        sem_wait(&stateMutex);
-        if (strcmp(command, "PLAY") == 0) {
-            video->actualCommand = PLAY;
-            printf("Estado cambiado a PLAY\n");
-        } else if (strcmp(command, "PAUSE") == 0) {
+    if (fcntl(connfd, F_GETFD) == -1) {
+        perror("Invalid file descriptor");
+        return NULL;
+    }
+
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        int bytes_read = read(connfd, buffer, sizeof(buffer) - 1); 
+
+        if (bytes_read == 0) {
+            printf("Client disconnected.\n");
+            video->actualCommand = STOP;  
+            break;
+        } else if (bytes_read < 0) {
+          
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;  
+            } else {
+                perror("Error reading from client");
+                video->actualCommand = STOP; 
+                break;
+            }
+        }
+        buffer[bytes_read] = '\0';
+
+        sem_wait(&encoderMutex);
+
+        if (strcmp(buffer, "PAUSE") == 0) {
             video->actualCommand = PAUSE;
-            printf("Estado cambiado a PAUSE\n");
-        } else if (strcmp(command, "STOP") == 0) {
+            printf("Received command: PAUSE\n");
+        } else if (strcmp(buffer, "PLAY") == 0) {
+            video->actualCommand = PLAY;
+            printf("Received command: PLAY\n");
+        } else if(strcmp(buffer,"REPLAY") == 0){
+            video->actualCommand = REPLAY;
+            video->endedFlag = 0;
+            printf("Received command: REPLAY\n");
+        } else if (strcmp(buffer, "STOP") == 0) {
             video->actualCommand = STOP;
-            printf("Estado cambiado a STOP\n");
-            pthread_mutex_unlock(&stateMutex);
-            break;  // Terminar el hilo si se recibe STOP
+            printf("Received command: STOP\n");
+            sem_post(&encoderMutex);
+            close(connfd);
+            break;  // Exit the loop for STOP command
+        } else if (strcmp(buffer, "-L") == 0) {
+            video->actualBitrate = LOW;
+            printf("Received command: LOW\n");
+        } else if (strcmp(buffer, "-M") == 0) {
+            video->actualBitrate = MEDIUM;
+            printf("Received command: MEDIUM\n");
+        } else if (strcmp(buffer, "-H") == 0) {
+            video->actualBitrate = HIGH;
+            printf("Received command: HIGH\n");
         } else {
-            printf("Comando no reconocido. Use PLAY, PAUSE o STOP.\n");
+            printf("Unrecognized command: %s", buffer);
         }
-        sem_post(&stateMutex);
+
+        sem_post(&encoderMutex);
     }
+
     return NULL;
 }
+
+

@@ -94,9 +94,13 @@ int main(int argc, char **argv)
 	}
 	
 }
+
 void *run_logic_side(void *arg) {
 
     int connfd = sbuf_remove(&sbuf);
+    printf("Cliente escuchando desde %d\n",connfd);
+    char connfd_str[12]; // Espacio suficiente para un entero de 32 bits
+    snprintf(connfd_str, sizeof(connfd_str), "%d", connfd);
 
     pid_t pid = fork();
     if (pid == -1) {
@@ -105,7 +109,7 @@ void *run_logic_side(void *arg) {
     } else if (pid == 0) {
         // Este es el proceso hijo
         printf("Ejecutando ./logic_side en un hilo.\n");
-        execl("./logic_side", "./logic_side", connfd, NULL);
+        execl("./logic_side", "./logic_side", connfd_str, (char *)NULL);        
         perror("Error al ejecutar ./logic_side"); // Solo se ejecuta si execl falla
         exit(EXIT_FAILURE);
     } else {

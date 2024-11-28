@@ -28,7 +28,7 @@ Ej: ./global_server 8080
 ```
 Ej: ./client 127.0.0.1 8080
 
-##Comandos.
+## Comandos.
 Desde el cliente, puedes enviar los siguientes mensajes:
 1. -L, -M, -H dedicados a la calidad del video. (Baja, media o alta).
 2. STOP. Pausa y cierra la conexión.

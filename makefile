@@ -3,7 +3,7 @@ CFLAGS = -g
 SRCS_COMMON = common.c linkedlist.c sbuf.c
 HEADER = common.h linkedlist.h sbuf.h
 LOGIC_SERVER = logic_side
-TARGETS = global_server client
+TARGETS = global_server client logic_side
 
 all: $(TARGETS) $(LOGIC_SERVER)
 
